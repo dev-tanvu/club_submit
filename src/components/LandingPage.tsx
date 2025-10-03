@@ -188,7 +188,7 @@ export default function LandingPage({ category }: LandingPageProps) {
       });
       
       // Try direct fetch first
-      const response = await fetch(scriptUrl, {
+      await fetch(scriptUrl, {
         method: 'POST',
         mode: 'no-cors',
         headers: {
@@ -242,11 +242,11 @@ export default function LandingPage({ category }: LandingPageProps) {
     form.target = '_blank'; // Open response in new tab if needed
     
     // Add data as hidden inputs
-    Object.keys(data).forEach(key => {
+    Object.entries(data).forEach(([key, value]) => {
       const input = document.createElement('input');
       input.type = 'hidden';
       input.name = key;
-      input.value = Array.isArray(data[key]) ? data[key].join(',') : data[key];
+      input.value = Array.isArray(value) ? value.join(',') : String(value);
       form.appendChild(input);
     });
     
