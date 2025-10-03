@@ -163,12 +163,6 @@ export default function LandingPage({ category }: LandingPageProps) {
   };
 
   const submitToGoogleSheets = async (formData: any, imageUrls: string[], category: string) => {
-    const googleAppsScriptUrl = 'https://script.google.com/macros/s/AKfycbzWFzMnuJcpsSfY1qyOVXFdpEsVfx0b5r7Uleuiw-vlxZ8S3z9KrG6BuO60oTuADFkzWg/exec';
-    
-    // Use a CORS proxy to bypass CORS restrictions
-    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-    const fullUrl = proxyUrl + googleAppsScriptUrl;
-    
     const dataToSend = {
       category: category,
       fullNameBengali: formData.fullNameBengali,
@@ -182,11 +176,11 @@ export default function LandingPage({ category }: LandingPageProps) {
     };
     
     try {
-      const response = await fetch(fullUrl, {
+      // Use Vercel serverless function
+      const response = await fetch('/api/submit-form', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
         },
         body: JSON.stringify(dataToSend)
       });
@@ -196,11 +190,15 @@ export default function LandingPage({ category }: LandingPageProps) {
       }
       
       return await response.json();
+      
     } catch (error) {
       console.error('Submission error:', error);
-      // Fallback: just log the data for now
+      
+      // Fallback: Log data for manual entry
       console.log('Form data to submit:', dataToSend);
-      return { success: true, message: 'Form submitted successfully (logged to console)' };
+      console.log('Please manually add this data to your Google Sheet');
+      
+      return { success: true, message: 'Form data logged to console - please add manually to Google Sheet' };
     }
   };
 

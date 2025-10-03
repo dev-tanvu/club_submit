@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "api/submit-form.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/submit-form",
+      "destination": "/api/submit-form.js"
+    }
+  ]
+}
