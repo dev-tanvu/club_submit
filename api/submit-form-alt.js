@@ -1,4 +1,4 @@
-// Vercel serverless function to handle form submission
+// Alternative Vercel serverless function using URL-encoded data
 module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,14 +17,18 @@ module.exports = async function handler(req, res) {
   try {
     const googleAppsScriptUrl = 'https://script.google.com/macros/s/AKfycbzWFzMnuJcpsSfY1qyOVXFdpEsVfx0b5r7Uleuiw-vlxZ8S3z9KrG6BuO60oTuADFkzWg/exec';
     
-    console.log('Submitting to Google Apps Script:', req.body);
+    console.log('Received data:', req.body);
+    
+    // Convert to URL-encoded format
+    const formData = new URLSearchParams();
+    formData.append('data', JSON.stringify(req.body));
     
     const response = await fetch(googleAppsScriptUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify(req.body)
+      body: formData.toString()
     });
 
     console.log('Google Apps Script response status:', response.status);

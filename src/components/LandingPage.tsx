@@ -176,7 +176,7 @@ export default function LandingPage({ category }: LandingPageProps) {
     };
     
     try {
-      // Use Vercel serverless function
+      // Try the main serverless function first
       const response = await fetch('/api/submit-form', {
         method: 'POST',
         headers: {
@@ -186,19 +186,44 @@ export default function LandingPage({ category }: LandingPageProps) {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to submit form data');
+        const errorData = await response.json();
+        console.error('Main endpoint error:', errorData);
+        throw new Error(`Server error: ${response.status} - ${errorData.details || errorData.error}`);
       }
       
       return await response.json();
       
     } catch (error) {
-      console.error('Submission error:', error);
+      console.error('Main submission failed:', error);
       
-      // Fallback: Log data for manual entry
-      console.log('Form data to submit:', dataToSend);
-      console.log('Please manually add this data to your Google Sheet');
-      
-      return { success: true, message: 'Form data logged to console - please add manually to Google Sheet' };
+      // Try alternative endpoint
+      try {
+        console.log('Trying alternative endpoint...');
+        const altResponse = await fetch('/api/submit-form-alt', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(dataToSend)
+        });
+        
+        if (!altResponse.ok) {
+          const altErrorData = await altResponse.json();
+          console.error('Alternative endpoint error:', altErrorData);
+          throw new Error(`Alternative server error: ${altResponse.status} - ${altErrorData.details || altErrorData.error}`);
+        }
+        
+        return await altResponse.json();
+        
+      } catch (altError) {
+        console.error('Alternative submission also failed:', altError);
+        
+        // Final fallback: Log data for manual entry
+        console.log('Form data to submit:', dataToSend);
+        console.log('Please manually add this data to your Google Sheet');
+        
+        return { success: true, message: 'Form data logged to console - please add manually to Google Sheet' };
+      }
     }
   };
 
