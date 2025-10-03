@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Submission Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .submission-item {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .submission-item h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .field {
+            margin: 10px 0;
+        }
+        .field strong {
+            display: inline-block;
+            width: 150px;
+            color: #333;
+        }
+        .images {
+            margin-top: 10px;
+        }
+        .image-link {
+            display: block;
+            margin: 5px 0;
+            color: #007bff;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        .image-link:hover {
+            text-decoration: underline;
+        }
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .copy-btn:hover {
+            background: #218838;
+        }
+        .clear-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .clear-btn:hover {
+            background: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📸 Photography Contest Submissions</h1>
+        <p>This page shows all form submissions. You can copy the data and add it to your Google Sheet manually.</p>
+        
+        <div>
+            <button class="copy-btn" onclick="copyAllData()">📋 Copy All Data</button>
+            <button class="clear-btn" onclick="clearAllData()">🗑️ Clear All Data</button>
+        </div>
+        
+        <div id="submissions"></div>
+        
+        <div id="no-data" style="display: none; text-align: center; padding: 40px; color: #666;">
+            <h3>No submissions yet</h3>
+            <p>Form submissions will appear here when users submit the form.</p>
+        </div>
+    </div>
+
+    <script>
+        // Load submissions from localStorage
+        function loadSubmissions() {
+            const submissions = JSON.parse(localStorage.getItem('formSubmissions') || '[]');
+            const container = document.getElementById('submissions');
+            const noData = document.getElementById('no-data');
+            
+            if (submissions.length === 0) {
+                container.innerHTML = '';
+                noData.style.display = 'block';
+                return;
+            }
+            
+            noData.style.display = 'none';
+            container.innerHTML = submissions.map((submission, index) => `
+                <div class="submission-item">
+                    <h3>Submission #${index + 1} - ${submission.category.toUpperCase()}</h3>
+                    <div class="field"><strong>Full Name (Bengali):</strong> ${submission.fullNameBengali}</div>
+                    <div class="field"><strong>Full Name (English):</strong> ${submission.fullNameEnglish}</div>
+                    <div class="field"><strong>Institution:</strong> ${submission.institutionName}</div>
+                    <div class="field"><strong>Class:</strong> ${submission.class}</div>
+                    <div class="field"><strong>Email:</strong> ${submission.email}</div>
+                    <div class="field"><strong>Phone:</strong> ${submission.phone}</div>
+                    <div class="field"><strong>WhatsApp:</strong> ${submission.whatsapp}</div>
+                    <div class="field"><strong>Submission Date:</strong> ${submission.submissionDate}</div>
+                    <div class="field">
+                        <strong>Images:</strong>
+                        <div class="images">
+                            ${submission.imageUrls.map(url => `<a href="${url}" target="_blank" class="image-link">${url}</a>`).join('')}
+                        </div>
+                    </div>
+                    <button class="copy-btn" onclick="copySubmission(${index})">📋 Copy This Submission</button>
+                </div>
+            `).join('');
+        }
+        
+        function copySubmission(index) {
+            const submissions = JSON.parse(localStorage.getItem('formSubmissions') || '[]');
+            const submission = submissions[index];
+            
+            const dataString = `
+Category: ${submission.category}
+Full Name (Bengali): ${submission.fullNameBengali}
+Full Name (English): ${submission.fullNameEnglish}
+Institution: ${submission.institutionName}
+Class: ${submission.class}
+Email: ${submission.email}
+Phone: ${submission.phone}
+WhatsApp: ${submission.whatsapp}
+Image URLs: ${submission.imageUrls.join(', ')}
+Submission Date: ${submission.submissionDate}
+            `.trim();
+            
+            navigator.clipboard.writeText(dataString).then(() => {
+                alert('Submission data copied to clipboard!');
+            });
+        }
+        
+        function copyAllData() {
+            const submissions = JSON.parse(localStorage.getItem('formSubmissions') || '[]');
+            const allData = submissions.map((submission, index) => `
+Submission #${index + 1}:
+Category: ${submission.category}
+Full Name (Bengali): ${submission.fullNameBengali}
+Full Name (English): ${submission.fullNameEnglish}
+Institution: ${submission.institutionName}
+Class: ${submission.class}
+Email: ${submission.email}
+Phone: ${submission.phone}
+WhatsApp: ${submission.whatsapp}
+Image URLs: ${submission.imageUrls.join(', ')}
+Submission Date: ${submission.submissionDate}
+---
+            `).join('\n');
+            
+            navigator.clipboard.writeText(allData).then(() => {
+                alert('All submission data copied to clipboard!');
+            });
+        }
+        
+        function clearAllData() {
+            if (confirm('Are you sure you want to clear all submission data?')) {
+                localStorage.removeItem('formSubmissions');
+                loadSubmissions();
+            }
+        }
+        
+        // Load submissions on page load
+        loadSubmissions();
+        
+        // Listen for new submissions
+        window.addEventListener('storage', loadSubmissions);
+    </script>
+</body>
+</html>
