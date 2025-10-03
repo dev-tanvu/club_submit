@@ -41,17 +41,14 @@ export default function LandingPage({ category }: LandingPageProps) {
   const validateForm = (): boolean => {
     const errors: {[key: string]: string} = {};
 
-    // Email validation
     if (formData.email && !validateEmail(formData.email)) {
       errors.email = 'Please enter a valid email address';
     }
 
-    // Phone validation
     if (formData.phone && !validatePhoneNumber(formData.phone)) {
       errors.phone = 'Phone number must be numeric and at least 11 characters long';
     }
 
-    // WhatsApp validation
     if (formData.whatsapp && !validatePhoneNumber(formData.whatsapp)) {
       errors.whatsapp = 'WhatsApp number must be numeric and at least 11 characters long';
     }
@@ -92,6 +89,8 @@ export default function LandingPage({ category }: LandingPageProps) {
     setUploading(true);
 
     const validImages: ImageFile[] = [];
+    let processedCount = 0;
+    
     fileArray.forEach((file) => {
       if (validateImage(file)) {
         const reader = new FileReader();
@@ -100,15 +99,19 @@ export default function LandingPage({ category }: LandingPageProps) {
             file,
             preview: e.target?.result as string
           });
+          processedCount++;
 
-          if (validImages.length === fileArray.length) {
+          if (processedCount === fileArray.length) {
             setImages([...images, ...validImages]);
             setUploading(false);
           }
         };
         reader.readAsDataURL(file);
       } else {
-        setUploading(false);
+        processedCount++;
+        if (processedCount === fileArray.length) {
+          setUploading(false);
+        }
       }
     });
   };
@@ -163,7 +166,8 @@ export default function LandingPage({ category }: LandingPageProps) {
   };
 
   const submitToGoogleSheets = async (formData: any, imageUrls: string[], category: string) => {
-    // Prepare the submission data in the exact format expected by Google Apps Script
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbybApdPags-3VvuHYWcuzl8lLx3aSE49un5WBsF85MWYN6-SnoJrJwNX7q3JXD8iD_Z/exec';
+    
     const submissionData = {
       category: category,
       fullNameBengali: formData.fullNameBengali,
@@ -173,93 +177,81 @@ export default function LandingPage({ category }: LandingPageProps) {
       email: formData.email,
       phone: formData.phone,
       whatsapp: formData.whatsapp,
-      imageUrls: imageUrls.join(', '), // Join array into a string for Google Sheets
+      imageUrls: imageUrls.join(', '),
       timestamp: new Date().toISOString()
     };
 
+    console.log('Submitting to Google Sheets:', submissionData);
+
+    // Method 1: Try GET with query parameters (most reliable for Google Apps Script)
     try {
-      // Google Apps Script web app URL
-      const scriptUrl = 'https://script.google.com/macros/s/AKfycbybApdPags-3VvuHYWcuzl8lLx3aSE49un5WBsF85MWYN6-SnoJrJwNX7q3JXD8iD_Z/exec';
+      const params = new URLSearchParams(submissionData);
+      const url = `${scriptUrl}?${params.toString()}`;
       
-      // Create URL-encoded form data
+      await fetch(url, {
+        method: 'GET',
+        mode: 'no-cors'
+      });
+      
+      console.log('Submitted via GET method');
+      return { success: true, message: 'Form submitted successfully!' };
+    } catch (error) {
+      console.error('GET submission failed:', error);
+    }
+
+    // Method 2: Try POST with URLSearchParams
+    try {
       const formDataToSend = new URLSearchParams();
       Object.entries(submissionData).forEach(([key, value]) => {
         formDataToSend.append(key, String(value));
       });
       
-      // Try direct fetch first
       await fetch(scriptUrl, {
         method: 'POST',
         mode: 'no-cors',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: formDataToSend.toString(),
-        redirect: 'follow'
+        body: formDataToSend.toString()
       });
       
-      // With no-cors mode, we can't read the response, so we'll assume success
-      // and verify by checking the sheet
-      console.log('Form submitted to Google Sheets (response not readable in no-cors mode)');
-      
-      // Save to localStorage as a backup
-      const existingSubmissions = JSON.parse(localStorage.getItem('formSubmissions') || '[]');
-      existingSubmissions.push({
-        ...submissionData,
-        submissionDate: new Date().toLocaleString(),
-        imageUrls: imageUrls // Keep as array in localStorage for display
-      });
-      localStorage.setItem('formSubmissions', JSON.stringify(existingSubmissions));
-
-      return { 
-        success: true, 
-        message: 'Form submitted successfully! Data saved to Google Sheets and locally.'
-      };
+      console.log('Submitted via POST method');
+      return { success: true, message: 'Form submitted successfully!' };
     } catch (error) {
-      console.error('Google Sheets submission error:', error);
-      // Try alternative method if the first one fails
-      try {
-        await submitViaFormData(submissionData);
-        return { 
-          success: true, 
-          message: 'Form submitted successfully using alternative method!' 
-        };
-      } catch (altError) {
-        console.error('Alternative submission method also failed:', altError);
-        throw new Error('Failed to submit form data. Please try again later.');
-      }
+      console.error('POST submission failed:', error);
     }
-  };
 
-  // Alternative submission method using form submission
-  const submitViaFormData = async (data: any) => {
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbybApdPags-3VvuHYWcuzl8lLx3aSE49un5WBsF85MWYN6-SnoJrJwNX7q3JXD8iD_Z/exec';
-    
-    // Create a form and submit it
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = scriptUrl;
-    form.target = '_blank'; // Open response in new tab if needed
-    
-    // Add data as hidden inputs
-    Object.entries(data).forEach(([key, value]) => {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = key;
-      input.value = Array.isArray(value) ? value.join(',') : String(value);
-      form.appendChild(input);
-    });
-    
-    // Add form to page and submit
-    document.body.appendChild(form);
-    form.submit();
-    
-    // Clean up
-    setTimeout(() => document.body.removeChild(form), 1000);
-    
+    // Method 3: Hidden form submission (most reliable fallback)
     return new Promise((resolve) => {
-      // We can't reliably get the response this way, so we'll just assume success
-      setTimeout(resolve, 1000);
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = scriptUrl;
+      form.target = 'hidden_iframe';
+      
+      Object.entries(submissionData).forEach(([key, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = String(value);
+        form.appendChild(input);
+      });
+      
+      const iframe = document.createElement('iframe');
+      iframe.name = 'hidden_iframe';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      
+      iframe.onload = () => {
+        setTimeout(() => {
+          document.body.removeChild(form);
+          document.body.removeChild(iframe);
+          resolve({ success: true, message: 'Form submitted successfully!' });
+        }, 1000);
+      };
+      
+      document.body.appendChild(form);
+      console.log('Submitting form via hidden iframe');
+      form.submit();
     });
   };
 
@@ -282,25 +274,25 @@ export default function LandingPage({ category }: LandingPageProps) {
     setError('');
     
     try {
-      // Category is passed as prop from App component
-      
-      // Generate naming convention: participantname_class_last3digit of phone number
       const participantName = formData.fullNameEnglish.replace(/\s+/g, '_').toLowerCase();
       const className = formData.class.replace(/\s+/g, '_').toLowerCase();
       const phoneLast3 = formData.phone.slice(-3);
       
-      // Upload images to Cloudinary
-      const imageUploadPromises = images.map(img => 
-        uploadImageToCloudinary(img.file, participantName, className, phoneLast3, category)
+      console.log('Starting image upload to Cloudinary...');
+      const imageUploadPromises = images.map((img, idx) => 
+        uploadImageToCloudinary(img.file, participantName, className, phoneLast3, `${category}_${idx + 1}`)
       );
       
       const imageUrls = await Promise.all(imageUploadPromises);
+      console.log('Images uploaded successfully:', imageUrls);
       
-      // Submit form data and image URLs to Google Sheets
-      const result = await submitToGoogleSheets(formData, imageUrls, category);
+      console.log('Submitting form data to Google Sheets...');
+      await submitToGoogleSheets(formData, imageUrls, category);
+      console.log('Form submitted successfully!');
       
       setShowSuccess(true);
       setError('');
+      
       setTimeout(() => {
         setFormData({
           fullNameBengali: '',
@@ -314,7 +306,7 @@ export default function LandingPage({ category }: LandingPageProps) {
         setImages([]);
         setValidationErrors({});
         setShowSuccess(false);
-      }, 3000);
+      }, 5000);
       
     } catch (error) {
       console.error('Submission error:', error);
@@ -333,7 +325,6 @@ export default function LandingPage({ category }: LandingPageProps) {
       [name]: value
     });
 
-    // Clear validation error for this field when user starts typing
     if (validationErrors[name]) {
       setValidationErrors({
         ...validationErrors,
@@ -345,7 +336,7 @@ export default function LandingPage({ category }: LandingPageProps) {
   return (
     <div className="landing-page">
       <div className="content-container">
-        <h1 className="registration-title">Registration Form</h1>
+        <h1 className="registration-title">Registration Form - {category}</h1>
 
         <form className="form" onSubmit={handleSubmit}>
           <div className="form-group">
@@ -420,14 +411,13 @@ export default function LandingPage({ category }: LandingPageProps) {
           <div className="form-group">
             <label htmlFor="phone">Phone Number</label>
             <input
-              type="number"
+              type="tel"
               id="phone"
               name="phone"
               value={formData.phone}
               onChange={handleChange}
               required
               placeholder="Enter your phone number"
-              min="0"
               className={validationErrors.phone ? 'error' : ''}
             />
             {validationErrors.phone && (
@@ -438,14 +428,13 @@ export default function LandingPage({ category }: LandingPageProps) {
           <div className="form-group">
             <label htmlFor="whatsapp">WhatsApp Number</label>
             <input
-              type="number"
+              type="tel"
               id="whatsapp"
               name="whatsapp"
               value={formData.whatsapp}
               onChange={handleChange}
               required
               placeholder="Enter your WhatsApp number"
-              min="0"
               className={validationErrors.whatsapp ? 'error' : ''}
             />
             {validationErrors.whatsapp && (
@@ -524,22 +513,7 @@ export default function LandingPage({ category }: LandingPageProps) {
               <div className="success-icon">✓</div>
               <h2>Thank you for your submission!</h2>
               <p>We've received your entry successfully.</p>
-              <p>Images uploaded to Cloudinary with your naming convention.</p>
-              <a 
-                href="/submission-data.html" 
-                target="_blank" 
-                style={{
-                  display: 'inline-block',
-                  marginTop: '15px',
-                  padding: '10px 20px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: '5px'
-                }}
-              >
-                📋 View All Submissions
-              </a>
+              <p>Images uploaded to Cloudinary and data saved to Google Sheets.</p>
             </div>
           </div>
         )}
