@@ -163,7 +163,7 @@ export default function LandingPage({ category }: LandingPageProps) {
   };
 
   const submitToGoogleSheets = async (formData: any, imageUrls: string[], category: string) => {
-    // Simple solution: Save to localStorage and show success
+    // Prepare the submission data
     const submissionData = {
       category: category,
       fullNameBengali: formData.fullNameBengali,
@@ -174,29 +174,42 @@ export default function LandingPage({ category }: LandingPageProps) {
       phone: formData.phone,
       whatsapp: formData.whatsapp,
       imageUrls: imageUrls,
-      submissionDate: new Date().toLocaleString()
+      timestamp: new Date().toISOString()
     };
-    
-    // Save to localStorage
-    const existingSubmissions = JSON.parse(localStorage.getItem('formSubmissions') || '[]');
-    existingSubmissions.push(submissionData);
-    localStorage.setItem('formSubmissions', JSON.stringify(existingSubmissions));
-    
-    // Log the data to console
-    console.log('=== FORM SUBMISSION DATA ===');
-    console.log('Category:', submissionData.category);
-    console.log('Full Name (Bengali):', submissionData.fullNameBengali);
-    console.log('Full Name (English):', submissionData.fullNameEnglish);
-    console.log('Institution:', submissionData.institutionName);
-    console.log('Class:', submissionData.class);
-    console.log('Email:', submissionData.email);
-    console.log('Phone:', submissionData.phone);
-    console.log('WhatsApp:', submissionData.whatsapp);
-    console.log('Image URLs:', submissionData.imageUrls);
-    console.log('Submission Date:', submissionData.submissionDate);
-    console.log('===========================');
-    
-    return { success: true, message: 'Form submitted successfully! Data saved locally.' };
+
+    try {
+      // Replace with your Google Apps Script web app URL
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbybApdPags-3VvuHYWcuzl8lLx3aSE49un5WBsF85MWYN6-SnoJrJwNX7q3JXD8iD_Z/exec';
+      
+      const response = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submissionData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit to Google Sheets');
+      }
+
+      // Also save to localStorage as a backup
+      const existingSubmissions = JSON.parse(localStorage.getItem('formSubmissions') || '[]');
+      existingSubmissions.push({
+        ...submissionData,
+        submissionDate: new Date().toLocaleString()
+      });
+      localStorage.setItem('formSubmissions', JSON.stringify(existingSubmissions));
+
+      return { 
+        success: true, 
+        message: 'Form submitted successfully! Data saved to Google Sheets and locally.' 
+      };
+    } catch (error) {
+      console.error('Google Sheets submission error:', error);
+      throw new Error('Failed to submit form data to Google Sheets. Please try again later.');
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -233,9 +246,10 @@ export default function LandingPage({ category }: LandingPageProps) {
       const imageUrls = await Promise.all(imageUploadPromises);
       
       // Submit form data and image URLs to Google Sheets
-      await submitToGoogleSheets(formData, imageUrls, category);
+      const result = await submitToGoogleSheets(formData, imageUrls, category);
       
       setShowSuccess(true);
+      setError('');
       setTimeout(() => {
         setFormData({
           fullNameBengali: '',
@@ -253,7 +267,7 @@ export default function LandingPage({ category }: LandingPageProps) {
       
     } catch (error) {
       console.error('Submission error:', error);
-      setError('Failed to submit form. Please try again.');
+      setError(error instanceof Error ? error.message : 'Failed to submit form. Please try again.');
       setTimeout(() => setError(''), 5000);
     } finally {
       setUploading(false);
